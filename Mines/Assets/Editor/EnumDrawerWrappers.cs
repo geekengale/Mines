@@ -1,8 +1,12 @@
-﻿
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
-/// <summary>
-/// Draw wrapper for UICollections
-/// </summary>
+using UnityEngine.Tilemaps;
+
 [CustomPropertyDrawer(typeof(UICollection))]
-public class SomethingCollectionDrawer : EnumCollectionDrawer<GameObject, UIElements> { }
+public class UICollectionDrawer : EnumCollectionDrawer<GameObject, UIElements> { }
+
+[CustomPropertyDrawer(typeof(TileMapCollection))]
+public class TilemapsCollectionDrawer : EnumCollectionDrawer<Tilemap, TileMaps> { }
+
+[CustomPropertyDrawer(typeof(TileCollection))]
+public class TileCollectionDrawer : EnumCollectionDrawer<TileBase, Tiles> { }
