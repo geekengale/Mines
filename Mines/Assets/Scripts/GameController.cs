@@ -1,65 +1,96 @@
 ﻿using System.Linq;
 using UnityEngine;
-using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
-    public Vector2Int BoardSize = new Vector2Int(10,10);
-    public float hazardPercentage = 0.1f;
-
     public TileMapCollection Tilemaps;
     public TileCollection TileCollection;
+    public GameObject GameOverPanel;
+    public Text ResultsText;
 
-    private Vector2Int bottomleft;
-    private Vector2Int topright;
+    [HideInInspector]
+    public Vector3 WorldBottomLeft;
+    [HideInInspector]
+    public Vector3 WorldTopRight;
 
-    private int[] Mines;
-    private bool[] Dug;
+    private Vector2Int boardSize = new Vector2Int(40,10);
+    private float hazardPercentage = 0.1f;
+    
+    private Vector2Int bottomLeftCell;
+    private Vector2Int topRightCell;
+    
+    private Cell[] cells;
 
-    private void Start()
+    public void SetBoardWidth(int width)
     {
-        Mines = new int[BoardSize.x * BoardSize.y];
-        Dug = new bool[BoardSize.x * BoardSize.y];
+        boardSize.x = width;
+    }
 
-        var hazards = Enumerable.Range(0, Mines.Length).OrderBy(o => Random.value).Take((int)(Mines.Length * hazardPercentage));
+    public void SetBoardHeight(int height)
+    {
+        boardSize.y = height;
+    }
+
+    public void SetHazardPercentage(float percentage)
+    {
+        hazardPercentage = percentage;
+    }
+
+    public void SetUpGame()
+    {
+        foreach (var m in Tilemaps.Collection)
+            m.ClearAllTiles();
+
+        cells = new Cell[boardSize.x * boardSize.y];
+        
+        //todo: simplify?
+        var hazards = Enumerable.Range(0, cells.Length).OrderBy(o => Random.value).Take((int)(cells.Length * hazardPercentage));
         foreach (var h in hazards)
         {
-            Mines[h] = 9;
+            cells[h].Mines = 9;
             //left
-            if (h - 1 >= 0 && h % BoardSize.x != 0)
+            if (h - 1 >= 0 && h % boardSize.x != 0)
             {
-                Mines[h - 1]++;
+                cells[h - 1].Mines++;
                 //down
-                if (h - BoardSize.x - 1 >= 0)
-                    Mines[h - BoardSize.x - 1]++;
+                if (h - boardSize.x - 1 >= 0)
+                    cells[h - boardSize.x - 1].Mines++;
                 //up
-                if (h + BoardSize.x - 1 < Mines.Length)
-                    Mines[h + BoardSize.x - 1]++;
+                if (h + boardSize.x - 1 < cells.Length)
+                    cells[h + boardSize.x - 1].Mines++;
             }
             //right
-            if (h + 1 < Mines.Length && h % BoardSize.x != BoardSize.x - 1)
+            if (h + 1 < cells.Length && h % boardSize.x != boardSize.x - 1)
             {
-                Mines[h + 1]++;
+                cells[h + 1].Mines++;
                 //down
-                if (h - BoardSize.x + 1 >= 0)
-                    Mines[h - BoardSize.x + 1]++;
+                if (h - boardSize.x + 1 >= 0)
+                    cells[h - boardSize.x + 1].Mines++;
                 //up
-                if (h + BoardSize.x + 1 < Mines.Length)
-                    Mines[h + BoardSize.x + 1]++;
+                if (h + boardSize.x + 1 < cells.Length)
+                    cells[h + boardSize.x + 1].Mines++;
             }
 
             //down
-            if (h - BoardSize.x >= 0)
-                Mines[h - BoardSize.x]++;
+            if (h - boardSize.x >= 0)
+                cells[h - boardSize.x].Mines++;
             //up
-            if (h + BoardSize.x < Mines.Length)
-                Mines[h + BoardSize.x]++;
+            if (h + boardSize.x < cells.Length)
+                cells[h + boardSize.x].Mines++;
         }
         
-        bottomleft = new Vector2Int(BoardSize.x / 2, BoardSize.y / 2) * -1;
-        topright = bottomleft + BoardSize;
-        for (var x = bottomleft.x; x < topright.x; x++)
-            for (var y = bottomleft.y; y < topright.y; y++)
+        bottomLeftCell = new Vector2Int(boardSize.x / 2, boardSize.y / 2) * -1;
+        topRightCell = bottomLeftCell + boardSize - Vector2Int.one;
+
+        WorldBottomLeft = Tilemaps[TileMaps.Decoration].GetCellCenterWorld((Vector3Int)bottomLeftCell);
+        WorldBottomLeft += new Vector3(-0.5f, -0.5f, 0);
+
+        WorldTopRight = Tilemaps[TileMaps.Decoration].GetCellCenterWorld((Vector3Int)topRightCell);
+        WorldTopRight += new Vector3(0.5f, 0.5f, 0);
+
+        for (var x = bottomLeftCell.x; x <= topRightCell.x; x++)
+            for (var y = bottomLeftCell.y; y <= topRightCell.y; y++)
                 Tilemaps[TileMaps.Ground].SetTile(new Vector3Int(x, y, 0), TileCollection[Tiles.Grass]);
     }
 
@@ -68,21 +99,21 @@ public class GameController : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             var p = (Vector2Int)Tilemaps[TileMaps.Ground].WorldToCell(Camera.main.ScreenToWorldPoint(Input.mousePosition));
-            if (p.x >= bottomleft.x && p.x < topright.x && p.y >= bottomleft.y && p.y < topright.y)
+            if (p.x >= bottomLeftCell.x && p.x <= topRightCell.x && p.y >= bottomLeftCell.y && p.y <= topRightCell.y)
                 Dig(p);
         }
     }
 
     private void Dig(Vector2Int point)
     {
-        var p = point - bottomleft;
-        var index = p.y * BoardSize.x + p.x;
+        var p = point - bottomLeftCell;
+        var index = p.y * boardSize.x + p.x;
 
-        if (index < 0 || index >= Mines.Length || Dug[index])
+        if (index < 0 || index >= cells.Length || cells[index].Dug)
             return;
 
-        var m = Mines[index];
-        Dug[index] = true;
+        var m = cells[index].Mines;
+        cells[index].Dug = true;
 
         //Always dig this point.
         Tilemaps[TileMaps.Ground].SetTile((Vector3Int)point, TileCollection[Tiles.Sand]);
@@ -91,6 +122,8 @@ public class GameController : MonoBehaviour
         if (m >= 9)
         {
             Tilemaps[TileMaps.Decoration].SetTile((Vector3Int)point, TileCollection[Tiles.Star]);
+            ResultsText.text = "You dug up a mine. You lost.";
+            GameOverPanel.SetActive(true);
             return;
         }
         
@@ -98,7 +131,6 @@ public class GameController : MonoBehaviour
         else if (m > 0 && m < 9)
         {
             Tilemaps[TileMaps.Decoration].SetTile((Vector3Int)point, TileCollection[Tiles.Star + m]);
-            return;
         }
 
         //No mines, lets get close.
@@ -109,10 +141,23 @@ public class GameController : MonoBehaviour
                 for (var y = -1; y <= 1; y++)
                 {
                     p = point + new Vector2Int(x, y);
-                    if (p.x >= bottomleft.x && p.x < topright.x && p.y >= bottomleft.y && p.y < topright.y)
+                    if (p.x >= bottomLeftCell.x && p.x <= topRightCell.x && p.y >= bottomLeftCell.y && p.y <= topRightCell.y)
                         Dig(p);
                 }
             }
         }
+
+        //Debug.LogError(cells.Where(c => c.Mines < 9 && c.Dug != true).Count());
+        if (cells.Where(c => c.Mines < 9).All(c => c.Dug))
+        {
+            ResultsText.text = "You cleared the field. You win.";
+            GameOverPanel.SetActive(true);
+        }
+    }
+
+    private struct Cell
+    {
+        public int Mines;
+        public bool Dug;
     }
 }

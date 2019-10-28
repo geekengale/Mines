@@ -34,3 +34,5 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
+/Mines/Assets/Editor/AutoSave.cs
+/Mines/Assets/Editor/AutoSave.cs.meta
